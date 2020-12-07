@@ -1,31 +1,37 @@
 clc, clear, close all
 
-digitDatasetPath = fullfile(matlabroot,'toolbox','nnet','nndemos', ...
-    'nndatasets','DigitDataset');
+digitDatasetPath = 'C:\Users\karol\OneDrive\Pulpit\DigitDataset';
 imds = imageDatastore(digitDatasetPath, ...
     'IncludeSubfolders',true,'LabelSource','foldernames');
 
-%Pokazuje 20 losowych cyfr 
-figure;
-perm = randperm(10000,20);
-for i = 1:20
-    subplot(4,5,i);
-    imshow(imds.Files{perm(i)});
-end
-
 %Obliczenie liczby kategorii
 labelCount = countEachLabel(imds);
+classes_num = height(labelCount);
 
 %Okreslenie rozmiaru obrazka na potrzeby warstwy wejsciowej
 img = readimage(imds,1);
-size(img);
+imgSize = [size(img) 1];
+
 
 %Podzielenie zestawu na dane uczace i testowe
 numTrainFiles = 750;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
 
+%Augmentacja danych
+imageAugmenter = imageDataAugmenter( ...
+    'RandRotation',[-20,20], ...
+    'RandXTranslation',[-3 3], ...
+    'RandYTranslation',[-3 3], ...
+    'RandXReflection', true, ...
+    'RandYReflection', true, ...
+    'RandXShear', [-5 5], ...
+    'RandYShear', [-5 5]);
+
+augimds = augmentedImageDatastore(imgSize, imdsTrain, 'DataAugmentation',imageAugmenter);
+
+%Stworzenie warstw, konwolucje, max pooling, full connected, softmax
 layers = [
-    imageInputLayer([28 28 1])
+    imageInputLayer(imgSize)
     
     convolution2dLayer(3,8,'Padding','same')
     batchNormalizationLayer
@@ -43,6 +49,25 @@ layers = [
     batchNormalizationLayer
     reluLayer
     
-    fullyConnectedLayer(10)
+    fullyConnectedLayer(classes_num)
     softmaxLayer
     classificationLayer];
+
+%opcje procesu uczenia
+options = trainingOptions('sgdm', ...
+    'InitialLearnRate',0.01, ...
+    'MaxEpochs',4, ...
+    'Shuffle','every-epoch', ...
+    'ValidationData',imdsValidation, ...
+    'ValidationFrequency',30, ...
+    'Verbose',false, ...
+    'Plots','training-progress');
+
+%trening sieci
+net = trainNetwork(augimds,layers,options);
+
+%walidacja
+YPred = classify(net,imdsValidation);
+YValidation = imdsValidation.Labels;
+
+accuracy = sum(YPred == YValidation)/numel(YValidation);
