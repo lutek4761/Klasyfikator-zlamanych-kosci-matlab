@@ -1,6 +1,6 @@
 clc, clear, close all
 
-digitDatasetPath = 'C:\Users\karol\OneDrive\Pulpit\DigitDataset';
+digitDatasetPath = 'C:\Users\karol\OneDrive\Pulpit\dataset';
 imds = imageDatastore(digitDatasetPath, ...
     'IncludeSubfolders',true,'LabelSource','foldernames');
 
@@ -14,7 +14,7 @@ imgSize = [size(img) 1];
 
 
 %Podzielenie zestawu na dane uczace i testowe
-numTrainFiles = 750;
+numTrainFiles = 20;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
 
 %Augmentacja danych
